@@ -1,0 +1,491 @@
+{
+  "name": "Live Weather Alert  Boot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Weather-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1696,
+        -80
+      ],
+      "id": "1dd50c2e-41c8-4af8-a77c-64b40bfee74b",
+      "name": "Webhook",
+      "webhookId": "34a67d9f-d8be-47c6-8fed-ccb66820a7ff"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"statusCode\": 400,\n  \"errorMessage\" : \"city is not Found\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -352,
+        -80
+      ],
+      "id": "5f5b0a3a-5f02-48a6-85ef-7ce2faf6c352",
+      "name": "Bad request"
+    },
+    {
+      "parameters": {
+        "url": "http://api.weatherapi.com/v1/current.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "95f98f25eda24dbe976111740262409"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.body.city }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -352,
+        -272
+      ],
+      "id": "afd457f4-b80a-4f33-b9ae-924438d6a6d0",
+      "name": "Weather Api",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data =$input.first().json;\n\nconst city = data.location.name;\nconst temp = data.current.temp_c;\nconst feels = Math.round(data.current.feelslike_c);\nconst humidity = data.current.humidity;\nconst desc = data.current.condition.text;\nconst wind = Math.round(data.current.wind_kph);\n\nlet severity = \"Normal\";\nlet emoji = \"🌤️\";\n\nif(temp > 42){\n  severity =\"Hot\";\n  emoji = \"🥵\"\n\n}else if(temp<=15) {\n  severity =\"Cold\";\n  emoji =\"❄️\";\n  \n}else if(desc === \"Thunderstrom\"){\n  severity =\"Stromy\";\n  emoji =\"🌪️\";\n}\n\nconst message = [\n  `${emoji} *Weather Alert - ${city}*`,\n  `Condition: ${desc}`,\n  `Temperature: ${temp}°C (feels like ${feels}°C)`,\n  `Humidity: ${humidity}% | Wind: ${wind} km/h`,\n  `Severity: *${severity}*`\n].join(\"\\n\");\n  \nreturn [\n  {\n    json:{\n      message,\n      severity,\n      city\n      \n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        -176
+      ],
+      "id": "994efde5-9f6d-4280-bf2e-4f4f715ed606",
+      "name": "Format Alert"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e1381249-ca83-4e83-9dca-3130dff2d176",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "Hot",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "ea65912f-4989-4581-86a2-8d62b454f91e",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "Cold",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "5fc34fe4-7cc8-4215-a6a2-b6a5786ecc48",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "Stromy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        320,
+        -176
+      ],
+      "id": "7b11ff4e-d888-4d6c-9669-7490ea2b9cd4",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"statuscode\" : 200,\n  \"severity\" : \"{{ $json.severity }}\",\n  \"message\" :{{ JSON.stringify($json.message) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        544,
+        -80
+      ],
+      "id": "be5f7c03-169b-499f-ae8f-27f238b1aa59",
+      "name": "Severity Normal"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n   \"statuscode\" : 200,\n  \"severity\" : \"{{ $json.severity }}\",\n  \"message\" :{{ JSON.stringify($json.message) }}\n} ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        544,
+        -272
+      ],
+      "id": "58525bee-b469-417c-9b5d-ddcadcdd43eb",
+      "name": "Weather alerts"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "value": "={{ JSON.stringify($json.body) }}"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        -1472,
+        -80
+      ],
+      "id": "cb6cd564-0810-41de-b575-671446bc5c78",
+      "name": "General signature",
+      "credentials": {
+        "crypto": {
+          "id": "3QNGzbuUfErVjlwp",
+          "name": "Crypto account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "775837b6-feef-4445-8fa6-e94e3735654c",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1248,
+        -80
+      ],
+      "id": "f9ada127-6393-442b-bbb8-e66ac346537b",
+      "name": "Verify signature"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "88f3259d-1a3a-4b59-952a-d9b9f8de2b0f",
+              "leftValue": "={{ $json.body.city }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -576,
+        -176
+      ],
+      "id": "489b543b-c7e9-46dd-8f41-7a2140e9ab58",
+      "name": "If city exists"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"statuscode\": 401,\n  \"errorMessage\": \"Invalid signature - UnAuthorised Access\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -1024,
+        16
+      ],
+      "id": "c3777c25-7d26-4e8c-ace0-f21587563895",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $input.first().json.headers;\nconst ts = parseInt(headers['x-timestamp']);\nconst now = Math.floor(Date.now() / 1000);\nif(!ts || Math.abs (now - ts) > 300){\n  throw new Error('Request Expired');\n}\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        -176
+      ],
+      "id": "a4a685b4-948f-49d1-b7ef-86b8ec6945d2",
+      "name": "Timestamp check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const store = $getWorkflowStaticData('global');\n\nconst user =$input.first().json.body.userId ||'anon';\nconst now = Date.now();\n\nif(!store[user]){\n  store[user] =[];\n  \n}\n\nstore[user] = store[user].filter(t => now - t < 60000);\nif(store[user].length >= 5){\n  throw new Error('Rate limit Exceeded');\n}\n\nstore[user].push(now);\nreturn $input.all();\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        -176
+      ],
+      "id": "64d8213f-8b1f-47a8-98f7-4b13d04df545",
+      "name": "Rate limit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d098e4df-aaaf-4666-9463-3cead27807bb",
+              "leftValue": "={{ $json.location }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -128,
+        -272
+      ],
+      "id": "0658aeca-3aa4-4baa-b1d3-ad1abca7bdf8",
+      "name": "Api Failed"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"statusCode\": 400,\n  \"errorMessage\" : \"city is not Found\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        96,
+        -368
+      ],
+      "id": "7bd6c83e-2de3-43e3-8726-034502bb6c4d",
+      "name": "Unable to fetch Weather data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "General signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weather Api": {
+      "main": [
+        [
+          {
+            "node": "Api Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Alert": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Weather alerts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Severity Normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "General signature": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If city exists": {
+      "main": [
+        [
+          {
+            "node": "Weather Api",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bad request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Timestamp check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Timestamp check": {
+      "main": [
+        [
+          {
+            "node": "Rate limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate limit": {
+      "main": [
+        [
+          {
+            "node": "If city exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Api Failed": {
+      "main": [
+        [
+          {
+            "node": "Unable to fetch Weather data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "55a19165-e405-428e-be0a-2f7e32d899e1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "987bd47cce7f51505dfc545c5664527be588b61e88936b2f5fe21afd9b1591de"
+  },
+  "nodeGroups": [],
+  "id": "gfzOJqHMBldeA5B5",
+  "tags": []
+}
