@@ -29,4 +29,6 @@ The workflow receives a request through a webhook, validates the request, checks
 
 ## Project Screenshot
 
+![Live Weather Alert Bot Workflow](workflow.png)
+
 The complete workflow is available in the n8n workflow JSON file included in this repository.
